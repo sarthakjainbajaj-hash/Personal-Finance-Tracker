@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | Finance Tracker{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Welcome & Quick Stats Banner -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h2 class="fw-bold mb-1" style="letter-spacing: -0.02em;">Welcome back, {{ session.get('user_name', 'User') }} 👋</h2>
+        <p class="text-muted mb-0">Here is your financial activity and spending breakdown at a glance.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-white text-dark border px-3 py-2 fw-semibold shadow-sm d-flex align-items-center gap-2">
+            <i class="bi bi-calendar3 text-primary"></i>
+            <span id="currentDateDisplay"></span>
+        </span>
+        <a href="{{ url_for('transactions') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i>
+            <span>Add Transaction</span>
+        </a>
+    </div>
+</div>
+
+<!-- 4 Key Stat Cards -->
+<div class="row g-4 mb-4">
+    <!-- Total Income -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card-modern income">
+            <div class="stat-top">
+                <div class="stat-title">Total Income</div>
+                <div class="stat-icon"><i class="bi bi-arrow-up-right-circle-fill"></i></div>
+            </div>
+            <h3 class="stat-value text-success">${{ '%.2f'|format(summary.total_income) }}</h3>
+            <div class="mt-2 d-flex align-items-center gap-2">
+                <span class="stat-badge bg-success-subtle text-success">
+                    <i class="bi bi-graph-up-arrow"></i> Inflow
+                </span>
+                <span class="text-muted small">All time total</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Expense -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card-modern expense">
+            <div class="stat-top">
+                <div class="stat-title">Total Expense</div>
+                <div class="stat-icon"><i class="bi bi-arrow-down-left-circle-fill"></i></div>
+            </div>
+            <h3 class="stat-value text-danger">${{ '%.2f'|format(summary.total_expense) }}</h3>
+            <div class="mt-2 d-flex align-items-center gap-2">
+                <span class="stat-badge bg-danger-subtle text-danger">
+                    <i class="bi bi-graph-down-arrow"></i> Outflow
+                </span>
+                <span class="text-muted small">${{ '%.2f'|format(summary.current_month_expense) }} this month</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Net Balance -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card-modern balance">
+            <div class="stat-top">
+                <div class="stat-title">Net Balance</div>
+                <div class="stat-icon"><i class="bi bi-wallet-fill"></i></div>
+            </div>
+            <h3 class="stat-value text-primary">${{ '%.2f'|format(summary.balance) }}</h3>
+            <div class="mt-2 d-flex align-items-center gap-2">
+                <span class="stat-badge {% if summary.balance >= 0 %}bg-primary-subtle text-primary{% else %}bg-danger-subtle text-danger{% endif %}">
+                    <i class="bi bi-shield-check"></i> Available
+                </span>
+                <span class="text-muted small">Cash reserve</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Transactions -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="stat-card-modern transactions">
+            <div class="stat-top">
+                <div class="stat-title">Transactions</div>
+                <div class="stat-icon"><i class="bi bi-receipt"></i></div>
+            </div>
+            <h3 class="stat-value text-info">{{ summary.total_transactions }}</h3>
+            <div class="mt-2 d-flex align-items-center gap-2">
+                <span class="stat-badge bg-info-subtle text-info">
+                    <i class="bi bi-arrow-left-right"></i> Records
+                </span>
+                <span class="text-muted small">Logged entries</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row g-4 mb-4">
+    <!-- Category Doughnut Chart -->
+    <div class="col-lg-6">
+        <div class="custom-card h-100">
+            <div class="card-header-clean">
+                <h5><i class="bi bi-pie-chart text-primary"></i> Expense by Category</h5>
+                <span class="badge bg-light text-muted border">Summary</span>
+            </div>
+            <div class="p-4" style="position: relative; height: 320px;">
+                {% if chart_categories and chart_categories|length > 0 %}
+                    <canvas id="expenseChart"></canvas>
+                {% else %}
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+                        <i class="bi bi-pie-chart fs-1 mb-2 text-secondary opacity-50"></i>
+                        <p class="mb-0">No expense records yet to plot.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Income vs Expense Bar Chart -->
+    <div class="col-lg-6">
+        <div class="custom-card h-100">
+            <div class="card-header-clean">
+                <h5><i class="bi bi-bar-chart-fill text-primary"></i> Income vs Expense</h5>
+                <span class="badge bg-light text-muted border">Comparison</span>
+            </div>
+            <div class="p-4" style="position: relative; height: 320px;">
+                <canvas id="incomeExpenseChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trend & Smart AI Insights -->
+<div class="row g-4 mb-4">
+    <!-- Monthly Expense Trend -->
+    <div class="col-lg-7">
+        <div class="custom-card h-100">
+            <div class="card-header-clean">
+                <h5><i class="bi bi-graph-up text-primary"></i> 6-Month Expense Trend</h5>
+                <span class="badge bg-light text-muted border">Monthly History</span>
+            </div>
+            <div class="p-4" style="position: relative; height: 300px;">
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Smart Financial Insights -->
+    <div class="col-lg-5">
+        <div class="custom-card h-100">
+            <div class="card-header-clean">
+                <h5><i class="bi bi-stars text-warning"></i> Smart Financial Insights</h5>
+                <span class="badge bg-warning-subtle text-warning-emphasis">Automated</span>
+            </div>
+            <div class="p-3">
+                <div class="insights-container">
+                    {% for insight in insights %}
+                        <div class="insight-item">
+                            <div class="insight-icon">
+                                <i class="bi bi-lightbulb-fill"></i>
+                            </div>
+                            <p class="insight-text">{{ insight }}</p>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-lightbulb fs-2 mb-2 d-block opacity-50"></i>
+                            <p class="mb-0">Add transactions to generate smart insights!</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions Card -->
+<div class="custom-card">
+    <div class="card-header-clean">
+        <h5><i class="bi bi-clock-history text-primary"></i> Recent Transactions</h5>
+        <a href="{{ url_for('transactions') }}" class="btn btn-sm btn-outline-primary">
+            <span>View All</span>
+            <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-modern align-middle">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th class="text-end">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for txn in summary.recent_transactions %}
+                <tr>
+                    <td>
+                        <span class="fw-medium text-dark">{{ txn.date }}</span>
+                    </td>
+                    <td>
+                        {% if txn.type == 'income' %}
+                            <span class="badge-income">
+                                <i class="bi bi-arrow-down-left"></i> Income
+                            </span>
+                        {% else %}
+                            <span class="badge-expense">
+                                <i class="bi bi-arrow-up-right"></i> Expense
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border px-2 py-1 fw-semibold">{{ txn.category }}</span>
+                    </td>
+                    <td>
+                        <span class="text-muted">{{ txn.description or '—' }}</span>
+                    </td>
+                    <td class="text-end">
+                        {% if txn.type == 'income' %}
+                            <span class="amount-income">+${{ '%.2f'|format(txn.amount) }}</span>
+                        {% else %}
+                            <span class="amount-expense">-${{ '%.2f'|format(txn.amount) }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-5">
+                        <i class="bi bi-receipt-cutoff fs-2 d-block mb-2 opacity-50"></i>
+                        No transactions recorded yet. <a href="{{ url_for('transactions') }}">Add your first transaction</a>!
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Format date badge on dashboard
+const dateOptions = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+const dateElem = document.getElementById('currentDateDisplay');
+if (dateElem) {
+    dateElem.textContent = new Date().toLocaleDateString('en-US', dateOptions);
+}
+
+// 1. Doughnut Chart for Categories
+const expenseCanvas = document.getElementById('expenseChart');
+if (expenseCanvas) {
+    const expenseCtx = expenseCanvas.getContext('2d');
+    new Chart(expenseCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ chart_categories|tojson }},
+            datasets: [{
+                data: {{ chart_expense_values|tojson }},
+                backgroundColor: [
+                    '#4f46e5', '#10b981', '#f59e0b', '#ef4444', 
+                    '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6'
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff',
+                hoverOffset: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '68%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 10,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 16,
+                        font: { size: 12, weight: 600 }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// 2. Bar Chart for Income vs Expense
+const barCanvas = document.getElementById('incomeExpenseChart');
+if (barCanvas) {
+    const barCtx = barCanvas.getContext('2d');
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Income', 'Expense'],
+            datasets: [{
+                label: 'Total Amount',
+                data: [{{ income_vs_expense.income }}, {{ income_vs_expense.expense }}],
+                backgroundColor: ['#10b981', '#ef4444'],
+                borderRadius: 10,
+                barThickness: 50
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { callback: (val) => '$' + val }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+// 3. Line Chart for Monthly Expense Trend
+const lineCanvas = document.getElementById('lineChart');
+if (lineCanvas) {
+    const lineCtx = lineCanvas.getContext('2d');
+    const gradient = lineCtx.createLinearGradient(0, 0, 0, 260);
+    gradient.addColorStop(0, 'rgba(79, 70, 229, 0.25)');
+    gradient.addColorStop(1, 'rgba(79, 70, 229, 0.00)');
+
+    new Chart(lineCtx, {
+        type: 'line',
+        data: {
+            labels: {{ monthly_labels|tojson }},
+            datasets: [{
+                label: 'Monthly Expense',
+                data: {{ monthly_values|tojson }},
+                borderColor: '#4f46e5',
+                borderWidth: 3,
+                pointBackgroundColor: '#4f46e5',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.35
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { callback: (val) => '$' + val }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Finance Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Overview</p>
+                <h1>Personal Finance Tracker</h1>
+            </div>
+        </header>
+
+        <section class="cards">
+            <div class="card income">
+                <span>Total Income</span>
+                <h2>${{ '%.2f'|format(total_income) }}</h2>
+            </div>
+            <div class="card expense">
+                <span>Total Expense</span>
+                <h2>${{ '%.2f'|format(total_expense) }}</h2>
+            </div>
+            <div class="card balance">
+                <span>Balance</span>
+                <h2>${{ '%.2f'|format(balance) }}</h2>
+            </div>
+        </section>
+
+        <section class="content-grid">
+            <div class="panel form-panel">
+                <h3>Add Transaction</h3>
+                <form method="POST" action="{{ url_for('index') }}">
+                    <div class="field-row">
+                        <label>
+                            Type
+                            <select name="type" required>
+                                <option value="income">Income</option>
+                                <option value="expense">Expense</option>
+                            </select>
+                        </label>
+                        <label>
+                            Category
+                            <input type="text" name="category" placeholder="Salary, Rent, Food" required>
+                        </label>
+                    </div>
+
+                    <div class="field-row">
+                        <label>
+                            Amount
+                            <input type="number" name="amount" step="0.01" min="0.01" required>
+                        </label>
+                        <label>
+                            Date
+                            <input type="date" name="date" value="{{ today }}">
+                        </label>
+                    </div>
+
+                    <label>
+                        Description
+                        <input type="text" name="description" placeholder="Optional notes">
+                    </label>
+
+                    <button type="submit">Save Transaction</button>
+                </form>
+            </div>
+
+            <div class="panel summary-panel">
+                <h3>Category Summary</h3>
+                {% if by_category %}
+                    <ul class="category-list">
+                        {% for category, values in by_category.items() %}
+                            <li>
+                                <div>
+                                    <strong>{{ category }}</strong>
+                                </div>
+                                <div class="category-values">
+                                    <span class="income-text">Income: ${{ '%.2f'|format(values['income']) }}</span>
+                                    <span class="expense-text">Expense: ${{ '%.2f'|format(values['expense']) }}</span>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No transactions yet.</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="panel">
+            <h3>Recent Transactions</h3>
+            {% if transactions %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Date</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in transactions %}
+                            <tr>
+                                <td class="tag {{ item['type'] }}">{{ item['type'] }}</td>
+                                <td>{{ item['category'] }}</td>
+                                <td>${{ '%.2f'|format(item['amount']) }}</td>
+                                <td>{{ item['date'] }}</td>
+                                <td>{{ item['description'] or '—' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No transactions recorded yet.</p>
+            {% endif %}
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

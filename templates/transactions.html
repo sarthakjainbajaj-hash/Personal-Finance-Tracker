@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+
+{% block title %}Transactions | Finance Tracker{% endblock %}
+{% block page_title %}Transactions{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Left Column: Add / Edit Transaction Form -->
+    <div class="col-lg-4">
+        <div class="custom-card sticky-top" style="top: 90px;">
+            <div class="card-header-clean">
+                <h5>
+                    {% if edit_transaction %}
+                        <i class="bi bi-pencil-square text-primary"></i> Edit Transaction
+                    {% else %}
+                        <i class="bi bi-plus-circle text-primary"></i> New Transaction
+                    {% endif %}
+                </h5>
+                {% if edit_transaction %}
+                    <a href="{{ url_for('transactions') }}" class="btn btn-sm btn-outline-secondary">Cancel</a>
+                {% endif %}
+            </div>
+
+            <div class="p-4">
+                <form method="POST" action="{% if edit_transaction %}{{ url_for('edit_transaction', transaction_id=edit_transaction.id) }}{% else %}{{ url_for('transactions') }}{% endif %}">
+                    <!-- Type Selector -->
+                    <div class="mb-3">
+                        <label class="form-label">Transaction Type</label>
+                        <select class="form-select" name="type" required>
+                            <option value="expense" {% if edit_transaction and edit_transaction.type == 'expense' %}selected{% endif %}>Expense (Money Out)</option>
+                            <option value="income" {% if edit_transaction and edit_transaction.type == 'income' %}selected{% endif %}>Income (Money In)</option>
+                        </select>
+                    </div>
+
+                    <!-- Category with Quick Pills -->
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <input type="text" class="form-control" name="category" placeholder="e.g. Food, Salary, Rent" value="{{ edit_transaction.category if edit_transaction else '' }}" required>
+                        <div class="category-pills">
+                            <span class="cat-pill" data-category="Salary">💰 Salary</span>
+                            <span class="cat-pill" data-category="Food & Dining">🍔 Food</span>
+                            <span class="cat-pill" data-category="Rent & Utilities">🏠 Rent</span>
+                            <span class="cat-pill" data-category="Shopping">🛍️ Shopping</span>
+                            <span class="cat-pill" data-category="Transport">🚗 Travel</span>
+                            <span class="cat-pill" data-category="Entertainment">🎬 Fun</span>
+                        </div>
+                    </div>
+
+                    <!-- Amount -->
+                    <div class="mb-3">
+                        <label class="form-label">Amount ($)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted border-end-0">$</span>
+                            <input type="number" class="form-control border-start-0 ps-1" name="amount" step="0.01" min="0.01" placeholder="0.00" value="{{ edit_transaction.amount if edit_transaction else '' }}" required>
+                        </div>
+                    </div>
+
+                    <!-- Date -->
+                    <div class="mb-3">
+                        <label class="form-label">Date</label>
+                        <input type="date" class="form-control" name="date" value="{{ edit_transaction.date if edit_transaction else '' }}" required>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-4">
+                        <label class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" name="description" rows="2" placeholder="Add a note or context...">{{ edit_transaction.description if edit_transaction else '' }}</textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2">
+                        <i class="bi bi-check2-circle"></i>
+                        <span>{% if edit_transaction %}Update Transaction{% else %}Save Transaction{% endif %}</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Filter & Transaction Table -->
+    <div class="col-lg-8">
+        <!-- Filter Card -->
+        <div class="custom-card mb-4">
+            <div class="card-header-clean">
+                <h5><i class="bi bi-funnel text-primary"></i> Filter & Search</h5>
+            </div>
+            <div class="p-3">
+                <form method="GET" action="{{ url_for('transactions') }}" class="row g-3 align-items-end">
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label small">From Date</label>
+                        <input type="date" class="form-control form-control-sm" name="date_from" value="{{ filters.date_from or '' }}">
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label small">To Date</label>
+                        <input type="date" class="form-control form-control-sm" name="date_to" value="{{ filters.date_to or '' }}">
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label small">Type</label>
+                        <select class="form-select form-select-sm" name="type">
+                            <option value="">All Types</option>
+                            <option value="income" {% if filters.type == 'income' %}selected{% endif %}>Income</option>
+                            <option value="expense" {% if filters.type == 'expense' %}selected{% endif %}>Expense</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label small">Category</label>
+                        <input type="text" class="form-control form-control-sm" name="category" placeholder="Search category" value="{{ filters.category or '' }}">
+                    </div>
+
+                    <div class="col-sm-4 col-md-3">
+                        <label class="form-label small">Min Amount ($)</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" name="amount_min" placeholder="Min" value="{{ filters.amount_min or '' }}">
+                    </div>
+                    <div class="col-sm-4 col-md-3">
+                        <label class="form-label small">Max Amount ($)</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" name="amount_max" placeholder="Max" value="{{ filters.amount_max or '' }}">
+                    </div>
+                    <div class="col-sm-4 col-md-3">
+                        <label class="form-label small">Sort Order</label>
+                        <select class="form-select form-select-sm" name="sort">
+                            <option value="date_desc" {% if filters.sort == 'date_desc' or not filters.sort %}selected{% endif %}>Newest Date</option>
+                            <option value="date_old" {% if filters.sort == 'date_old' %}selected{% endif %}>Oldest Date</option>
+                            <option value="amount_high" {% if filters.sort == 'amount_high' %}selected{% endif %}>Highest Amount</option>
+                            <option value="amount_low" {% if filters.sort == 'amount_low' %}selected{% endif %}>Lowest Amount</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                            <i class="bi bi-filter"></i> Apply
+                        </button>
+                        <a href="{{ url_for('transactions') }}" class="btn btn-outline-secondary btn-sm" title="Clear filters">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Transactions List -->
+        <div class="custom-card">
+            <div class="card-header-clean">
+                <h5><i class="bi bi-list-check text-primary"></i> Transaction Records</h5>
+                <span class="badge bg-light text-muted border">{{ transactions|length }} record{% if transactions|length != 1 %}s{% endif %}</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for txn in transactions %}
+                        <tr>
+                            <td>
+                                <span class="fw-medium text-dark">{{ txn.date }}</span>
+                            </td>
+                            <td>
+                                {% if txn.type == 'income' %}
+                                    <span class="badge-income">
+                                        <i class="bi bi-arrow-down-left"></i> Income
+                                    </span>
+                                {% else %}
+                                    <span class="badge-expense">
+                                        <i class="bi bi-arrow-up-right"></i> Expense
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border px-2 py-1 fw-semibold">{{ txn.category }}</span>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ txn.description or '—' }}</span>
+                            </td>
+                            <td>
+                                {% if txn.type == 'income' %}
+                                    <span class="amount-income">+${{ '%.2f'|format(txn.amount) }}</span>
+                                {% else %}
+                                    <span class="amount-expense">-${{ '%.2f'|format(txn.amount) }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-2">
+                                    <a href="{{ url_for('edit_transaction', transaction_id=txn.id) }}" class="btn btn-sm btn-outline-primary py-1 px-2" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('delete_transaction_route', transaction_id=txn.id) }}" data-confirm-delete data-confirm-message="Delete this transaction permanently?">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger py-1 px-2" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-5">
+                                <i class="bi bi-search fs-2 d-block mb-2 opacity-50"></i>
+                                No matching transactions found. Try adjusting your filters.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
