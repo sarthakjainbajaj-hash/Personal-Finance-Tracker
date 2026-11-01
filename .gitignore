@@ -19,3 +19,4 @@ database/*.db
 .idea/
 .DS_Store
 Thumbs.db
+patch_models.py

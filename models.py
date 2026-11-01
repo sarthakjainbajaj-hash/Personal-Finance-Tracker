@@ -1,13 +1,28 @@
 import os
+import shutil
 import sqlite3
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "database", "finance.db")
+
+# On Vercel / serverless platforms, the file system is read-only except /tmp
+if os.environ.get("VERCEL") or not os.access(BASE_DIR, os.W_OK):
+    DB_PATH = "/tmp/finance.db"
+    repo_db = os.path.join(BASE_DIR, "database", "finance.db")
+    if os.path.exists(repo_db) and not os.path.exists(DB_PATH):
+        try:
+            shutil.copyfile(repo_db, DB_PATH)
+        except Exception:
+            pass
+else:
+    DB_PATH = os.path.join(BASE_DIR, "database", "finance.db")
 
 
 def get_db_connection():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    try:
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    except OSError:
+        pass
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn

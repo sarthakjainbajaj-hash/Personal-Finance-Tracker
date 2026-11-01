@@ -1,0 +1,5 @@
+venv/
+*.docx
+.git
+.gitignore
+Procfile
